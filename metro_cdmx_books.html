@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Metro CDMX - Biblioteca Compartida</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 25px;
+            text-align: center;
+            color: white;
+        }
+        
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 0;
+        }
+        
+        .map-container {
+            background: #ffffff;
+            padding: 30px;
+            overflow: auto;
+            min-height: 850px;
+            position: relative;
+        }
+        
+        .map-svg {
+            width: 100%;
+            height: 800px;
+            background: #f5f5f5;
+            border-radius: 10px;
+        }
+        
+        .metro-line {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+        }
+        
+        .station-group {
+            cursor: pointer;
+        }
+        
+        .station-circle {
+            transition: r 0.2s;
+        }
+        
+        .station-group:hover .station-circle {
+            r: 8;
+        }
+        
+        .station-name {
+            font-size: 11px;
+            fill: #333;
+            font-weight: 500;
+            pointer-events: none;
+        }
+        
+        .transfer-station {
+            stroke: white;
+            stroke-width: 3;
+        }
+        
+        .book-thumbnail {
+            cursor: pointer;
+        }
+        
+        .book-count-badge {
+            font-size: 10px;
+            font-weight: bold;
+            fill: white;
+            text-anchor: middle;
+        }
+        
+        .sidebar {
+            background: white;
+            border-left: 3px solid #f093fb;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 850px;
+        }
+        
+        .upload-section {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            padding: 18px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .upload-section h3 {
+            color: #333;
+            margin-bottom: 12px;
+            font-size: 1.15em;
+        }
+        
+        .upload-section p {
+            font-size: 0.82em;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        
+        select, input[type="file"], button {
+            width: 100%;
+            padding: 9px;
+            margin: 7px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.9em;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: scale(1.05);
+        }
+        
+        .legend {
+            background: white;
+            padding: 14px;
+            border-radius: 10px;
+            margin-bottom: 18px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .legend h4 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 1.05em;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin: 7px 0;
+            font-size: 0.85em;
+        }
+        
+        .books-display h3 {
+            color: #667eea;
+            margin-bottom: 14px;
+            font-size: 1.2em;
+        }
+        
+        .book-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 13px;
+            border-radius: 11px;
+            margin-bottom: 13px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        
+        .book-card img {
+            width: 100%;
+            max-height: 220px;
+            object-fit: cover;
+            border-radius: 7px;
+            margin-bottom: 9px;
+        }
+        
+        .book-info {
+            color: #333;
+            font-size: 0.85em;
+        }
+        
+        .no-books {
+            text-align: center;
+            color: #999;
+            padding: 25px;
+            font-style: italic;
+            font-size: 0.9em;
+        }
+        
+        .success-message {
+            background: #2ecc71;
+            color: white;
+            padding: 11px;
+            border-radius: 8px;
+            margin: 9px 0;
+            display: none;
+            font-size: 0.88em;
+        }
+        
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                border-left: none;
+                border-top: 3px solid #f093fb;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚇 Mapa del Metro CDMX - Biblioteca Compartida</h1>
+            <p class="subtitle">Haz clic en las estaciones para ver y compartir libros</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="map-container">
+                <svg class="map-svg" id="metro-map" viewBox="0 0 1000 700">
+                    <!-- Fondo del mapa -->
+                    <rect width="1000" height="700" fill="#f5f5f5"/>
+                    
+                    <!-- Título -->
+                    <text x="500" y="30" text-anchor="middle" font-size="24" font-weight="bold" fill="#333">Red del Metro CDMX</text>
+                </svg>
+            </div>
+            
+            <div class="sidebar">
+                <div class="legend">
+                    <h4>📍 Leyenda</h4>
+                    <div class="legend-item">
+                        <div style="width: 14px; height: 14px; background: #ddd; border-radius: 50%;"></div>
+                        <span>Estación</span>
+                    </div>
+                    <div class="legend-item">
+                        <div style="width: 14px; height: 14px; background: white; border: 3px solid #333; border-radius: 50%;"></div>
+                        <span>Transferencia</span>
+                    </div>
+                    <div class="legend-item">
+                        <div style="width: 20px; height: 26px; background: linear-gradient(#ffeaa7, #fdcb6e); border: 2px solid white; border-radius: 3px;"></div>
+                        <span>Tiene libros 📚</span>
+                    </div>
+                </div>
+                
+                <div class="upload-section">
+                    <h3>📖 Subir Libro</h3>
+                    <p>⚠️ Los libros serán visibles para todos</p>
+                    <select id="station-select">
+                        <option value="">Selecciona una estación</option>
+                    </select>
+                    <input type="file" id="book-image" accept="image/*">
+                    <button onclick="uploadBook()">Subir Libro</button>
+                    <div class="success-message" id="success-msg">¡Libro subido! 🎉</div>
+                </div>
+                
+                <div class="books-display" id="books-display">
+                    <h3>📚 Libros Compartidos</h3>
+                    <div class="no-books">Haz clic en una estación del mapa</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let booksData = {};
+        let selectedStation = null;
+        
+        const lineColors = {
+            "1": "#f54291",
+            "2": "#0b3f95",
+            "3": "#af9800",
+            "4": "#6dbdb6",
+            "5": "#fed502",
+            "6": "#e50026",
+            "7": "#ff6f27",
+            "8": "#00a753",
+            "9": "#5f2819",
+            "A": "#a52482",
+            "B": "#00853f",
+            "12": "#b49f3f"
+        };
+
+        // Mapa más completo con más estaciones
+        const stations = [
+            // Línea 1 (horizontal) - 20 estaciones
+            {name: "Observatorio", x: 80, y: 350, lines: ["1"]},
+            {name: "Tacubaya", x: 130, y: 350, lines: ["1", "7", "9"]},
+            {name: "Juanacatlán", x: 170, y: 350, lines: ["1"]},
+            {name: "Chapultepec", x: 210, y: 350, lines: ["1"]},
+            {name: "Sevilla", x: 250, y: 350, lines: ["1"]},
+            {name: "Insurgentes", x: 290, y: 350, lines: ["1"]},
+            {name: "Cuauhtémoc", x: 330, y: 350, lines: ["1"]},
+            {name: "Balderas", x: 370, y: 350, lines: ["1", "3"]},
+            {name: "Salto del Agua", x: 410, y: 350, lines: ["1", "8"]},
+            {name: "Isabel la Católica", x: 450, y: 350, lines: ["1"]},
+            {name: "Pino Suárez", x: 490, y: 350, lines: ["1", "2"]},
+            {name: "Merced", x: 530, y: 350, lines: ["1"]},
+            {name: "Candelaria", x: 570, y: 350, lines: ["1", "4"]},
+            {name: "San Lázaro", x: 610, y: 350, lines: ["1", "B"]},
+            {name: "Moctezuma", x: 650, y: 350, lines: ["1"]},
+            {name: "Balbuena", x: 690, y: 350, lines: ["1"]},
+            {name: "Boulevard Puerto Aéreo", x: 730, y: 350, lines: ["1"]},
+            {name: "Gómez Farías", x: 770, y: 350, lines: ["1"]},
+            {name: "Zaragoza", x: 810, y: 350, lines: ["1"]},
+            {name: "Pantitlán", x: 850, y: 350, lines: ["1", "5", "9", "A"]},
+            
+            // Línea 2 (diagonal y vertical) - 24 estaciones
+            {name: "Cuatro Caminos", x: 180, y: 80, lines: ["2"]},
+            {name: "Panteones", x: 210, y: 90, lines: ["2"]},
+            {name: "Tacuba", x: 240, y: 100, lines: ["2", "7"]},
+            {name: "Cuitláhuac", x: 270, y: 130, lines: ["2"]},
+            {name: "Popotla", x: 300, y: 160, lines: ["2"]},
+            {name: "Colegio Militar", x: 330, y: 190, lines: ["2"]},
+            {name: "Normal", x: 360, y: 220, lines: ["2"]},
+            {name: "San Cosme", x: 390, y: 250, lines: ["2"]},
+            {name: "Revolución", x: 420, y: 280, lines: ["2"]},
+            {name: "Hidalgo", x: 450, y: 310, lines: ["2", "3"]},
+            {name: "Bellas Artes", x: 470, y: 330, lines: ["2", "8"]},
+            {name: "Allende", x: 480, y: 340, lines: ["2"]},
+            {name: "Zócalo", x: 485, y: 345, lines: ["2"]},
+            {name: "San Antonio Abad", x: 490, y: 390, lines: ["2"]},
+            {name: "Chabacano", x: 490, y: 440, lines: ["2", "8", "9"]},
+            {name: "Viaducto", x: 480, y: 480, lines: ["2"]},
+            {name: "Xola", x: 460, y: 510, lines: ["2"]},
+            {name: "Villa de Cortés", x: 440, y: 540, lines: ["2"]},
+            {name: "Nativitas", x: 410, y: 560, lines: ["2"]},
+            {name: "Portales", x: 380, y: 575, lines: ["2"]},
+            {name: "Ermita", x: 350, y: 590, lines: ["2", "12"]},
+            {name: "General Anaya", x: 320, y: 605, lines: ["2"]},
+            {name: "Tasqueña", x: 290, y: 620, lines: ["2"]},
+            
+            // Línea 3 (diagonal) - 21 estaciones
+            {name: "Indios Verdes", x: 650, y: 70, lines: ["3"]},
+            {name: "Deportivo 18 de Marzo", x: 620, y: 100, lines: ["3", "6"]},
+            {name: "Potrero", x: 590, y: 130, lines: ["3"]},
+            {name: "La Raza", x: 560, y: 160, lines: ["3", "5"]},
+            {name: "Tlatelolco", x: 530, y: 190, lines: ["3"]},
+            {name: "Guerrero", x: 500, y: 220, lines: ["3", "B"]},
+            {name: "Juárez", x: 460, y: 260, lines: ["3"]},
+            {name: "Niños Héroes", x: 420, y: 300, lines: ["3"]},
+            {name: "Hospital General", x: 400, y: 320, lines: ["3"]},
+            {name: "Centro Médico", x: 380, y: 340, lines: ["3", "9"]},
+            {name: "Etiopía", x: 350, y: 380, lines: ["3"]},
+            {name: "Eugenia", x: 320, y: 420, lines: ["3"]},
+            {name: "División del Norte", x: 290, y: 460, lines: ["3"]},
+            {name: "Zapata", x: 260, y: 500, lines: ["3", "12"]},
+            {name: "Coyoacán", x: 230, y: 530, lines: ["3"]},
+            {name: "Viveros", x: 200, y: 555, lines: ["3"]},
+            {name: "Miguel Ángel de Quevedo", x: 170, y: 575, lines: ["3"]},
+            {name: "Copilco", x: 140, y: 595, lines: ["3"]},
+            {name: "Universidad", x: 110, y: 615, lines: ["3"]},
+            
+            // Línea 4 (vertical) - 10 estaciones
+            {name: "Martín Carrera", x: 720, y: 90, lines: ["4", "6"]},
+            {name: "Talismán", x: 720, y: 130, lines: ["4"]},
+            {name: "Bondojito", x: 720, y: 170, lines: ["4"]},
+            {name: "Consulado", x: 720, y: 210, lines: ["4"]},
+            {name: "Canal del Norte", x: 720, y: 250, lines: ["4"]},
+            {name: "Morelos", x: 720, y: 290, lines: ["4", "B"]},
+            {name: "Fray Servando", x: 690, y: 320, lines: ["4"]},
+            {name: "Jamaica", x: 660, y: 340, lines: ["4", "9"]},
+            {name: "Santa Anita", x: 620, y: 360, lines: ["4", "8"]},
+            
+            // Línea 5 (horizontal con diagonal) - 13 estaciones
+            {name: "Politécnico", x: 280, y: 150, lines: ["5"]},
+            {name: "Instituto del Petróleo", x: 340, y: 150, lines: ["5", "6"]},
+            {name: "Autobuses del Norte", x: 400, y: 150, lines: ["5"]},
+            {name: "Misterios", x: 500, y: 160, lines: ["5"]},
+            {name: "Valle Gómez", x: 570, y: 170, lines: ["5"]},
+            {name: "Eduardo Molina", x: 640, y: 200, lines: ["5"]},
+            {name: "Aragón", x: 700, y: 240, lines: ["5"]},
+            {name: "Oceanía", x: 760, y: 280, lines: ["5", "B"]},
+            {name: "Terminal Aérea", x: 800, y: 310, lines: ["5"]},
+            {name: "Hangares", x: 830, y: 330, lines: ["5"]},
+            
+            // Línea 6 (horizontal) - 11 estaciones
+            {name: "El Rosario", x: 100, y: 100, lines: ["6", "7"]},
+            {name: "Tezozómoc", x: 150, y: 100, lines: ["6"]},
+            {name: "Azcapotzalco", x: 200, y: 100, lines: ["6"]},
+            {name: "Ferrería", x: 250, y: 100, lines: ["6"]},
+            {name: "Norte 45", x: 300, y: 110, lines: ["6"]},
+            {name: "Vallejo", x: 350, y: 120, lines: ["6"]},
+            {name: "Lindavista", x: 470, y: 130, lines: ["6"]},
+            {name: "La Villa-Basílica", x: 580, y: 120, lines: ["6"]},
+            
+            // Línea 7 (diagonal) - 14 estaciones
+            {name: "Barranca del Muerto", x: 90, y: 450, lines: ["7"]},
+            {name: "San Antonio", x: 105, y: 430, lines: ["7"]},
+            {name: "San Pedro de los Pinos", x: 120, y: 410, lines: ["7"]},
+            {name: "Constituyentes", x: 135, y: 390, lines: ["7"]},
+            {name: "Auditorio", x: 150, y: 370, lines: ["7"]},
+            {name: "Polanco", x: 165, y: 340, lines: ["7"]},
+            {name: "San Joaquín", x: 180, y: 310, lines: ["7"]},
+            {name: "Refinería", x: 200, y: 270, lines: ["7"]},
+            {name: "Camarones", x: 220, y: 230, lines: ["7"]},
+            {name: "Aquiles Serdán", x: 230, y: 190, lines: ["7"]},
+            {name: "Mixcoac", x: 110, y: 435, lines: ["7", "12"]},
+            
+            // Línea 8 (diagonal) - 19 estaciones
+            {name: "Garibaldi", x: 480, y: 260, lines: ["8", "B"]},
+            {name: "San Juan de Letrán", x: 450, y: 310, lines: ["8"]},
+            {name: "Doctores", x: 460, y: 360, lines: ["8"]},
+            {name: "Obrera", x: 475, y: 380, lines: ["8"]},
+            {name: "La Viga", x: 520, y: 400, lines: ["8"]},
+            {name: "Coyuya", x: 580, y: 420, lines: ["8"]},
+            {name: "Iztacalco", x: 640, y: 440, lines: ["8"]},
+            {name: "Apatlaco", x: 690, y: 460, lines: ["8"]},
+            {name: "Aculco", x: 730, y: 480, lines: ["8"]},
+            {name: "Escuadrón 201", x: 770, y: 500, lines: ["8"]},
+            {name: "Atlalilco", x: 810, y: 520, lines: ["8", "12"]},
+            {name: "Iztapalapa", x: 840, y: 540, lines: ["8"]},
+            {name: "Cerro de la Estrella", x: 865, y: 560, lines: ["8"]},
+            {name: "UAM-I", x: 885, y: 580, lines: ["8"]},
+            {name: "Constitución de 1917", x: 905, y: 600, lines: ["8"]},
+            
+            // Línea 9 (horizontal con curva) - 12 estaciones
+            {name: "Patriotismo", x: 180, y: 360, lines: ["9"]},
+            {name: "Chilpancingo", x: 240, y: 360, lines: ["9"]},
+            {name: "Lázaro Cárdenas", x: 310, y: 370, lines: ["9"]},
+            {name: "Mixiuhca", x: 700, y: 350, lines: ["9"]},
+            {name: "Velódromo", x: 750, y: 350, lines: ["9"]},
+            {name: "Ciudad Deportiva", x: 800, y: 350, lines: ["9"]},
+            {name: "Puebla", x: 830, y: 350, lines: ["9"]},
+            
+            // Línea A (diagonal) - 10 estaciones
+            {name: "Agrícola Oriental", x: 870, y: 360, lines: ["A"]},
+            {name: "Canal de San Juan", x: 885, y: 380, lines: ["A"]},
+            {name: "Tepalcates", x: 895, y: 400, lines: ["A"]},
+            {name: "Guelatao", x: 905, y: 420, lines: ["A"]},
+            {name: "Peñón Viejo", x: 912, y: 440, lines: ["A"]},
+            {name: "Acatitla", x: 918, y: 460, lines: ["A"]},
+            {name: "Santa Marta", x: 923, y: 480, lines: ["A"]},
+            {name: "Los Reyes", x: 927, y: 500, lines: ["A"]},
+            {name: "La Paz", x: 930, y: 520, lines: ["A"]},
+            
+            // Línea B (diagonal inversa) - 21 estaciones
+            {name: "Ciudad Azteca", x: 900, y: 70, lines: ["B"]},
+            {name: "Plaza Aragón", x: 880, y: 90, lines: ["B"]},
+            {name: "Olímpica", x: 860, y: 110, lines: ["B"]},
+            {name: "Ecatepec", x: 840, y: 130, lines: ["B"]},
+            {name: "Múzquiz", x: 820, y: 150, lines: ["B"]},
+            {name: "Río de los Remedios", x: 800, y: 170, lines: ["B"]},
+            {name: "Impulsora", x: 780, y: 190, lines: ["B"]},
+            {name: "Nezahualcóyotl", x: 760, y: 210, lines: ["B"]},
+            {name: "Villa de Aragón", x: 740, y: 230, lines: ["B"]},
+            {name: "Bosque de Aragón", x: 720, y: 250, lines: ["B"]},
+            {name: "Deportivo Oceanía", x: 700, y: 270, lines: ["B"]},
+            {name: "Romero Rubio", x: 660, y: 290, lines: ["B"]},
+            {name: "Ricardo Flores Magón", x: 620, y: 310, lines: ["B"]},
+            {name: "Tepito", x: 570, y: 310, lines: ["B"]},
+            {name: "Lagunilla", x: 530, y: 280, lines: ["B"]},
+            {name: "Buenavista", x: 490, y: 250, lines: ["B"]},
+            
+            // Línea 12 (dorada) - 20 estaciones
+            {name: "Insurgentes Sur", x: 140, y: 460, lines: ["12"]},
+            {name: "Hospital 20 de Noviembre", x: 170, y: 480, lines: ["12"]},
+            {name: "Parque de los Venados", x: 210, y: 500, lines: ["12"]},
+            {name: "Eje Central", x: 280, y: 530, lines: ["12"]},
+            {name: "Mexicaltzingo", x: 360, y: 560, lines: ["12"]},
+            {name: "Culhuacán", x: 530, y: 560, lines: ["12"]},
+            {name: "San Andrés Tomatlán", x: 600, y: 560, lines: ["12"]},
+            {name: "Lomas Estrella", x: 670, y: 555, lines: ["12"]},
+            {name: "Calle 11", x: 720, y: 550, lines: ["12"]},
+            {name: "Periférico Oriente", x: 760, y: 540, lines: ["12"]},
+            {name: "Tezonco", x: 790, y: 530, lines: ["12"]},
+            {name: "Olivos", x: 815, y: 525, lines: ["12"]},
+            {name: "Nopalera", x: 835, y: 522, lines: ["12"]},
+            {name: "Zapotitlán", x: 855, y: 520, lines: ["12"]},
+            {name: "Tlaltenco", x: 875, y: 518, lines: ["12"]},
+            {name: "Tláhuac", x: 895, y: 516, lines: ["12"]}
+        ];
+
+        const lines = [
+            {line: "1", points: [[100,350], [820,350]]},
+            {line: "2", points: [[200,100], [280,150], [380,250], [500,350], [500,450], [400,600]]},
+            {line: "3", points: [[600,80], [500,180], [420,260], [380,250], [420,350], [360,420], [300,520], [180,620]]},
+            {line: "4", points: [[700,100], [700,250], [660,350], [580,350]]},
+            {line: "5", points: [[300,150], [500,180], [740,280], [820,350]]},
+            {line: "6", points: [[120,120], [700,100]]},
+            {line: "7", points: [[120,120], [280,150], [180,350], [180,420], [100,480]]},
+            {line: "8", points: [[450,300], [500,350], [500,450], [850,580]]},
+            {line: "9", points: [[180,350], [220,380], [360,420], [500,450], [820,350]]},
+            {line: "12", points: [[180,420], [300,520], [780,550]]},
+            {line: "A", points: [[820,350], [900,450]]},
+            {line: "B", points: [[850,100], [740,280], [700,250], [420,260], [400,280]]}
+        ];
+
+        async function loadAllBooks() {
+            try {
+                const result = await window.storage.list('books:', true);
+                if (result && result.keys) {
+                    for (const key of result.keys) {
+                        try {
+                            const bookData = await window.storage.get(key, true);
+                            if (bookData && bookData.value) {
+                                const book = JSON.parse(bookData.value);
+                                if (!booksData[book.station]) booksData[book.station] = [];
+                                booksData[book.station].push(book);
+                            }
+                        } catch (e) {}
+                    }
+                }
+            } catch (error) {}
+        }
+
+        async function initializeApp() {
+            await loadAllBooks();
+            drawMap();
+            populateStationSelect();
+        }
+
+        function drawMap() {
+            const svg = document.getElementById('metro-map');
+            
+            // Dibujar líneas
+            lines.forEach(lineData => {
+                const points = lineData.points.map(p => p.join(',')).join(' ');
+                const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                polyline.setAttribute('points', points);
+                polyline.setAttribute('class', 'metro-line');
+                polyline.setAttribute('stroke', lineColors[lineData.line]);
+                svg.appendChild(polyline);
+            });
+            
+            // Dibujar estaciones
+            stations.forEach(station => {
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('class', 'station-group');
+                g.onclick = () => selectStation(station.name);
+                
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', station.x);
+                circle.setAttribute('cy', station.y);
+                circle.setAttribute('r', 6);
+                circle.setAttribute('fill', station.lines.length > 1 ? 'white' : '#e0e0e0');
+                circle.setAttribute('class', 'station-circle');
+                if (station.lines.length > 1) circle.classList.add('transfer-station');
+                g.appendChild(circle);
+                
+                // Nombre de estación
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', station.x);
+                text.setAttribute('y', station.y + 18);
+                text.setAttribute('class', 'station-name');
+                text.setAttribute('text-anchor', 'middle');
+                text.textContent = station.name;
+                g.appendChild(text);
+                
+                // Libros
+                if (booksData[station.name] && booksData[station.name].length > 0) {
+                    const books = booksData[station.name];
+                    const count = Math.min(books.length, 3);
+                    
+                    for (let i = 0; i < count; i++) {
+                        const book = books[books.length - 1 - i];
+                        const offsetX = (i - 1) * 8;
+                        
+                        const img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+                        img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', book.image);
+                        img.setAttribute('x', station.x - 10 + offsetX);
+                        img.setAttribute('y', station.y - 35);
+                        img.setAttribute('width', '20');
+                        img.setAttribute('height', '28');
+                        img.setAttribute('class', 'book-thumbnail');
+                        img.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+                        g.appendChild(img);
+                        
+                        const border = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                        border.setAttribute('x', station.x - 10 + offsetX);
+                        border.setAttribute('y', station.y - 35);
+                        border.setAttribute('width', '20');
+                        border.setAttribute('height', '28');
+                        border.setAttribute('fill', 'none');
+                        border.setAttribute('stroke', 'white');
+                        border.setAttribute('stroke-width', '2');
+                        border.setAttribute('rx', '2');
+                        g.appendChild(border);
+                    }
+                    
+                    if (books.length > 3) {
+                        const badge = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        badge.setAttribute('cx', station.x + 15);
+                        badge.setAttribute('cy', station.y - 35);
+                        badge.setAttribute('r', '8');
+                        badge.setAttribute('fill', '#e74c3c');
+                        g.appendChild(badge);
+                        
+                        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        text.setAttribute('x', station.x + 15);
+                        text.setAttribute('y', station.y - 31);
+                        text.setAttribute('class', 'book-count-badge');
+                        text.textContent = '+' + (books.length - 3);
+                        g.appendChild(text);
+                    }
+                }
+                
+                svg.appendChild(g);
+            });
+        }
+
+        function populateStationSelect() {
+            const select = document.getElementById('station-select');
+            const stationNames = stations.map(s => s.name).sort();
+            stationNames.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                select.appendChild(opt);
+            });
+        }
+
+        function selectStation(station) {
+            selectedStation = station;
+            document.getElementById('station-select').value = station;
+            displayBooks(station);
+        }
+
+        function displayBooks(station) {
+            const display = document.getElementById('books-display');
+            const books = booksData[station] || [];
+            if (books.length === 0) {
+                display.innerHTML = '<h3>📚 ' + station + '</h3><div class="no-books">No hay libros. ¡Sé el primero!</div>';
+                return;
+            }
+            let html = '<h3>📚 ' + station + ' (' + books.length + ')</h3>';
+            books.forEach(book => {
+                html += '<div class="book-card"><img src="' + book.image + '"><div class="book-info"><strong>Subido:</strong> ' + book.date + '</div></div>';
+            });
+            display.innerHTML = html;
+        }
+
+        function uploadBook() {
+            const select = document.getElementById('station-select');
+            const input = document.getElementById('book-image');
+            const station = select.value;
+            
+            if (!station) {
+                alert('Por favor selecciona una estación');
+                return;
+            }
+            
+            if (!input.files || !input.files[0]) {
+                alert('Por favor selecciona una imagen');
+                return;
+            }
+            
+            const file = input.files[0];
+            if (file.size > 4 * 1024 * 1024) {
+                alert('La imagen es muy grande (máximo 4MB)');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const book = {
+                        image: e.target.result,
+                        station: station,
+                        date: new Date().toLocaleString('es-MX'),
+                        id: Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+                    };
+                    
+                    await window.storage.set('books:' + station + ':' + book.id, JSON.stringify(book), true);
+                    
+                    if (!booksData[station]) booksData[station] = [];
+                    booksData[station].push(book);
+                    
+                    const msg = document.getElementById('success-msg');
+                    msg.style.display = 'block';
+                    setTimeout(() => msg.style.display = 'none', 3000);
+                    
+                    input.value = '';
+                    
+                    // Redibujar solo las estaciones
+                    const svg = document.getElementById('metro-map');
+                    svg.querySelectorAll('.station-group').forEach(el => el.remove());
+                    drawMap();
+                    displayBooks(station);
+                } catch (error) {
+                    alert('Error al guardar');
+                    console.error(error);
+                }
+            };
+            
+            reader.readAsDataURL(file);
+        }
+
+        initializeApp();
+    </script>
+</body>
+</html>
