@@ -272,7 +272,7 @@
                 
                 <div class="upload-section">
                     <h3>📖 Subir Libro</h3>
-                    <p>⚠️ Los libros serán visibles para todos</p>
+                    <p>ℹ️ Los libros se guardan en tu navegador localmente</p>
                     <select id="station-select">
                         <option value="">Selecciona una estación</option>
                     </select>
@@ -515,20 +515,13 @@
 
         async function loadAllBooks() {
             try {
-                const result = await window.storage.list('books:', true);
-                if (result && result.keys) {
-                    for (const key of result.keys) {
-                        try {
-                            const bookData = await window.storage.get(key, true);
-                            if (bookData && bookData.value) {
-                                const book = JSON.parse(bookData.value);
-                                if (!booksData[book.station]) booksData[book.station] = [];
-                                booksData[book.station].push(book);
-                            }
-                        } catch (e) {}
-                    }
+                const stored = localStorage.getItem('metroBooks');
+                if (stored) {
+                    booksData = JSON.parse(stored);
                 }
-            } catch (error) {}
+            } catch (error) {
+                console.log('Error cargando libros:', error);
+            }
         }
 
         async function initializeApp() {
@@ -679,7 +672,7 @@
             }
             
             const reader = new FileReader();
-            reader.onload = async function(e) {
+            reader.onload = function(e) {
                 try {
                     const book = {
                         image: e.target.result,
@@ -688,10 +681,11 @@
                         id: Date.now() + '_' + Math.random().toString(36).substr(2, 9)
                     };
                     
-                    await window.storage.set('books:' + station + ':' + book.id, JSON.stringify(book), true);
-                    
                     if (!booksData[station]) booksData[station] = [];
                     booksData[station].push(book);
+                    
+                    // Guardar en localStorage
+                    localStorage.setItem('metroBooks', JSON.stringify(booksData));
                     
                     const msg = document.getElementById('success-msg');
                     msg.style.display = 'block';
@@ -699,13 +693,13 @@
                     
                     input.value = '';
                     
-                    // Redibujar solo las estaciones
+                    // Redibujar mapa
                     const svg = document.getElementById('metro-map');
                     svg.querySelectorAll('.station-group').forEach(el => el.remove());
                     drawMap();
                     displayBooks(station);
                 } catch (error) {
-                    alert('Error al guardar');
+                    alert('Error al guardar el libro');
                     console.error(error);
                 }
             };
